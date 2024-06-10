@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"io"
 	"log/slog"
 	"os"
@@ -51,7 +52,9 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rule_ApiProjectsFix(r)
 
-	proxy := &http.Transport{}
+	proxy := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	resp, err := proxy.RoundTrip(r)
 	if err != nil {
 		slog.ErrorContext(
