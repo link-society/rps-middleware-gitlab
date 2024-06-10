@@ -1,0 +1,28 @@
+---
+name: publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout@scm
+        uses: actions/checkout@main
+
+      - name: login@docker
+        uses: docker/login-action@master
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: release@docker
+        uses: docker/build-push-action@master
+        with:
+          push: true
+          tags: |
+            linksociety/rps-middleware-gitlab:latest
+            linksociety/rps-middleware-gitlab:${{ github.event.release.tag_name }}
