@@ -1,11 +1,11 @@
 package main
 
 import (
+	"io"
 	"log/slog"
 	"os"
 
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 
 	"strings"
@@ -24,10 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	proxyHandler := &ProxyHandler{
-		proxy:  httputil.NewSingleHostReverseProxy(remote),
-		remote: remote,
-	}
+	proxyHandler := &ProxyHandler{remote: remote}
 
 	slog.Info("Starting proxy")
 	err = http.ListenAndServe(":8080", proxyHandler)
@@ -38,7 +35,6 @@ func main() {
 }
 
 type ProxyHandler struct {
-	proxy  *httputil.ReverseProxy
 	remote *url.URL
 }
 
@@ -49,11 +45,33 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		slog.String("http.method", r.Method),
 		slog.String("http.url", r.URL.String()),
 	)
-	r.Host = h.remote.Host
+	r.URL.Scheme = h.remote.Scheme
+	r.URL.Host = h.remote.Host
+	r.URL.Path = h.remote.Path + r.URL.Path
 
 	rule_ApiProjectsFix(r)
 
-	h.proxy.ServeHTTP(w, r)
+	proxy := &http.Transport{}
+	resp, err := proxy.RoundTrip(r)
+	if err != nil {
+		slog.ErrorContext(
+			r.Context(),
+			err.Error(),
+			slog.String("http.method", r.Method),
+			slog.String("http.url", r.URL.String()),
+		)
+		http.Error(w, "Server Error", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
 func rule_ApiProjectsFix(r *http.Request) {
