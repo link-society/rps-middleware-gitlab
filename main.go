@@ -48,7 +48,10 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 	r.URL.Scheme = h.remote.Scheme
 	r.URL.Host = h.remote.Host
-	r.URL.Path = h.remote.Path + r.URL.Path
+
+	if h.remote.Path != "" && h.remote.Path != "/" {
+		r.URL.Path = h.remote.Path + r.URL.Path
+	}
 
 	rule_ApiProjectsFix(r)
 
